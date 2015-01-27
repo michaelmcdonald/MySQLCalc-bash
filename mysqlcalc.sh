@@ -7,7 +7,7 @@
 #          configuration based on your current database and memory usage
 
 
-VERSION="2.0"
+VERSION="2.0.0"
 
 
 ################################################################################################
