@@ -7,7 +7,7 @@
 #          configuration based on your current database and memory usage
 
 
-VERSION="2.0.0"
+VERSION="2.0.1"
 
 
 ################################################################################################
@@ -19,11 +19,8 @@ MEMORYINFO=$(tput setaf 180)
 MYSQLINFO=$(tput setaf 74)
 RECOMMENDATIONS=$(tput setaf 42)
 LIGHT=$(tput setaf 24)
-#LIGHT=$(tput setaf 75)
 DARK=$(tput setaf 202)
-
 UNDERLINE=$(tput smul)
-
 RESET=$(tput sgr0)
 
 
@@ -42,8 +39,6 @@ MYSQLVERSION=$(awk '{gsub(/,/,""); print $5}'i <<< "$MYSQLOUTPUT")
 # needs to be used to examine version numbers against one another. More for historical / future uses than anything.
 
 MYSQLREGEX="(([0-9])\.([0-9]+)\.([0-9]+)).*$"
-#MYSQLREGEX="(([0-9])\.([0-9])\.([0-9][0-9])).*$"
-#[[ $MYSQLVERSION =~ (([0-9])\.([0-9])\.([0-9][0-9])).*$ ]] &&
 [[ $MYSQLVERSION =~ $MYSQLREGEX ]] &&
 MYSQLENTIREVERSION=${BASH_REMATCH[1]} && # The whole version #: x.x.xx
 MYSQLMAJORVERSION=${BASH_REMATCH[2]} &&  # The major version #: x
@@ -62,13 +57,11 @@ INNODBVALUE=$(awk -F"=" '/innodb_buffer_pool_size/ {print $2}'i <<< "$MYSQLCONF"
 
 # Grabs just the value for the buffer pool
 INNODBVALNUMREGEX="(([0-9]+)).*$"
-#[[ $INNODBVALUE =~ (([0-9]+)).*$ ]] &&
 [[ $INNODBVALUE =~ $INNODBVALNUMREGEX ]] &&
 INNODBNUMVALUE=${BASH_REMATCH[1]} # Only the value
 
 #Grabs just the alpha character denoting the memory denomination
 INNODBVALALPHREGEX="([A-Za-z]).*$"
-#[[ $INNODBVALUE =~ ([A-Za-z]).*$ ]] &&
 [[ $INNODBVALUE =~ $INNODBVALALPHREGEX ]] &&
 INNODBDENOM=${BASH_REMATCH[1]} # The memory denomination being used
 
@@ -87,13 +80,11 @@ MYISAMVALUE=$(awk -F"=" '/key_buffer/ {print $2}'i <<< "$MYSQLCONF")
 
 # Grabs just the value for the buffer pool
 MYISAMVALNUMREGEX="(([0-9]+)).*$"
-#[[ $MYISAMVALUE =~ (([0-9]+)).*$ ]] &&
 [[ $MYISAMVALUE =~ $MYISAMVALNUMREGEX ]] &&
 MYISAMNUMVALUE=${BASH_REMATCH[1]} # Only the value
 
 #Grabs just the alpha character denoting the memory denomination
 MYISAMVALALPHREGEX="([A-Za-z]).*$"
-#[[ $MYISAMVALUE =~ ([A-Za-z]).*$ ]] &&
 [[ $MYISAMVALUE =~ $MYISAMVALALPHREGEX ]] &&
 MYISAMDENOM=${BASH_REMATCH[1]} # The memory denomination being used
 
@@ -143,26 +134,39 @@ KERNELMEM=$(grep Slab /proc/meminfo | awk '{x += $2} END {print x/1024}' | cut -
 
 #-----------------------------MYSQL DATABASE DETAIL(s) VARIABLES ------------------------------#
 
-
+# Captures the size of all InnoDB tables
 INNODBSIZE=$(mysql -e "SELECT engine, count(*) tables, concat(round(sum(table_rows)/1000000,2),'M') rows, concat(round(sum(data_length)/(1024*1024*1024),2),'G') data, concat(round(sum(index_length)/(1024*1024*1024),2),'G') idx, concat(round(sum(data_length+index_length)/(1024*1024*1024),2),'G') total_size, round(sum(index_length)/sum(data_length),2) idxfrac FROM information_schema.TABLES GROUP BY engine ORDER BY sum(data_length+index_length) DESC LIMIT 10;" | egrep '(InnoDB)' | cut -f6)
 
+# Captures the size of all MyISAM tables
 MYISAMSIZE=$(mysql -e "SELECT engine, count(*) tables, concat(round(sum(table_rows)/1000000,2),'M') rows, concat(round(sum(data_length)/(1024*1024*1024),2),'G') data, concat(round(sum(index_length)/(1024*1024*1024),2),'G') idx, concat(round(sum(data_length+index_length)/(1024*1024*1024),2),'G') total_size, round(sum(index_length)/sum(data_length),2) idxfrac FROM information_schema.TABLES GROUP BY engine ORDER BY sum(data_length+index_length) DESC LIMIT 10;" | egrep '(MyISAM)' | cut -f6)
 
+# Captures the size of the InnoDB cache
 INNODBCACHE=$(mysql -e "SELECT FLOOR(SUM(data_length+index_length)/POWER(1024,2)) InnoDBSizeMB FROM information_schema.tables WHERE engine='InnoDB';"| grep -v InnoDBSizeMB)
 
+# Captures the size of the MyISAM cache
 MYISAMCACHE=$(mysql -e "SELECT FLOOR(SUM(index_length)/POWER(1024,2)) IndexSizesMB FROM information_schema.tables WHERE engine='MyISAM' AND table_schema NOT IN ('information_schema','performance_schema','mysql');"| grep -v IndexSizesMB)
 
+# Counts and captures the total number of InnoDB tables
 TOTALINNODB=$(mysql -e "SELECT concat(TABLE_SCHEMA, '.', TABLE_NAME) FROM information_schema.tables WHERE engine = 'InnoDB'" | wc -l)
 
+# Counts and captures the total number of MyISAM tables
 TOTALMYISAM=$(mysql -e "SELECT concat(TABLE_SCHEMA, '.', TABLE_NAME) FROM information_schema.tables WHERE engine = 'MyISAM'" | wc -l)
 
+# Calculates what the recommended InnoDB Buffer Pool size should be exactly (no room for growth)
 INNODBREC=$(mysql -e "SELECT CONCAT(ROUND(KBS/POWER(1024, IF(PowerOf1024<0,0,IF(PowerOf1024>3,0,PowerOf1024)))+0.49999), SUBSTR(' KMG',IF(PowerOf1024<0,0, IF(PowerOf1024>3,0,PowerOf1024))+1,1)) recommended_innodb_buffer_pool_size FROM (SELECT SUM(data_length+index_length) KBS FROM information_schema.tables WHERE engine='InnoDB') A, (SELECT 2 PowerOf1024) B;" | grep -v recommended_innodb_buffer_pool_size)
 
+# Calculates what the recommended MyISAM Key Buffer size should be exactly (no room for growth)
 MYISAMREC=$(mysql -e "SELECT CONCAT(ROUND(KBS/POWER(1024, IF(PowerOf1024<0,0,IF(PowerOf1024>3,0,PowerOf1024)))+0.4999), SUBSTR(' KMG',IF(PowerOf1024<0,0, IF(PowerOf1024>3,0,PowerOf1024))+1,1)) recommended_key_buffer_size FROM (SELECT LEAST(POWER(2,32),KBS1) KBS FROM (SELECT SUM(index_length) KBS1 FROM information_schema.tables WHERE engine='MyISAM' AND table_schema NOT IN ('information_schema','mysql')) AA ) A, (SELECT 2 PowerOf1024) B;" | grep -v recommended_key_buffer_size)
 
 #----------------------------------------------------------------------------------------------#
 #                                     END SCRIPT VARIABLES                                     #
 ################################################################################################
+
+
+
+
+# Clear the screen
+clear
 
 
 
@@ -218,7 +222,7 @@ echo
 echo "${MYSQLINFO}${UNDERLINE}InnoDB Elements${RESET}"
 echo "${MYSQLINFO}Overall Size #: ${RESET}" $INNODBSIZE
 echo "${MYSQLINFO}Total Table(s): ${RESET}" $TOTALINNODB
-echo "${MYSQLINFO}Entire Cache #: ${RESET}" $INNODBCACHE
+echo "${MYSQLINFO}Entire Cache #: ${RESET}" $INNODBCACHE M
 echo "${MYSQLINFO}Buffer(s) Pool: ${RESET}" $MYSQLINNODB
 
 echo
@@ -226,7 +230,7 @@ echo
 echo "${MYSQLINFO}${UNDERLINE}MyISAM Elements${RESET}"
 echo "${MYSQLINFO}Overall Size #: ${RESET}" $MYISAMSIZE
 echo "${MYSQLINFO}Total Table(s): ${RESET}" $TOTALMYISAM
-echo "${MYSQLINFO}Entire Cache #: ${RESET}" $MYISAMCACHE
+echo "${MYSQLINFO}Entire Cache #: ${RESET}" $MYISAMCACHE M
 echo "${MYSQLINFO}Buffer(s) Pool: ${RESET}" $MYSQLMYISAM
 
 echo
@@ -236,8 +240,8 @@ echo -n "------------\ ${RECOMMENDATIONS}${UNDERLINE}RECOMMENDATIONS${RESET} \--
 echo
 echo
 
-echo  "${RECOMMENDATIONS}Recommended InnoDB Buffer Pool Size: ${RESET}" $INNODBREC
-echo  "${RECOMMENDATIONS}Recommended MyISAM Key Buffer Size: ${RESET}" $MYISAMREC
+echo  "${RECOMMENDATIONS}Alter InnoDB Buffer Pool Size to be: ${RESET}" $INNODBREC
+echo  "${RECOMMENDATIONS}Change MyISAM Key Buffer Size to be: ${RESET}" $MYISAMREC
 
 echo
 
