@@ -7,7 +7,7 @@
 #          configuration based on your current database and memory usage
 
 
-VERSION="2.0.1"
+VERSION="2.0.2"
 
 
 ################################################################################################
@@ -45,6 +45,10 @@ MYSQLMAJORVERSION=${BASH_REMATCH[2]} &&  # The major version #: x
 MYSQLMINORVERSION=${BASH_REMATCH[3]} &&  # The minor version #: x
 MYSQLBUILDVERSION=${BASH_REMATCH[4]}     # The build version #: xx
 
+#----------------------------------MYSQL CONF FILE VARIABLE------------------------------------#
+
+# Acquire the contents of the my.cnf file for parsing
+MYSQLCONF=$(cat /etc/my.cnf 2>/dev/null)
 
 #-------------------------------INNODB BUFFER POOL SIZE VARIABLES------------------------------#
 
@@ -220,18 +224,44 @@ echo
 #fi
 
 echo "${MYSQLINFO}${UNDERLINE}InnoDB Elements${RESET}"
-echo "${MYSQLINFO}Overall Size #: ${RESET}" $INNODBSIZE
-echo "${MYSQLINFO}Total Table(s): ${RESET}" $TOTALINNODB
-echo "${MYSQLINFO}Entire Cache #: ${RESET}" $INNODBCACHE M
-echo "${MYSQLINFO}Buffer(s) Pool: ${RESET}" $MYSQLINNODB
+echo "${MYSQLINFO}Overall Size #:${RESET}" $INNODBSIZE
+echo "${MYSQLINFO}Total Table(s):${RESET}" $TOTALINNODB
+echo "${MYSQLINFO}Entire Cache #:${RESET}" $INNODBCACHE M
+#echo "${MYSQLINFO}Buffer(s) Pool: ${RESET}" $MYSQLINNODB
+if [[ "$INNODBPRESENT" == "" ]];then
+
+        echo "${MYSQLINFO}Buffer(s) Pool:${RESET} 128 MB (default)"
+
+elif [[ $INNODBVALUE == *M ]] || [[ $INNODBVALUE == *G ]]; then
+
+        echo "${MYSQLINFO}Buffer(s) Pool:${RESET} $INNODBNUMVALUE $INNODBDENOM"
+
+else
+
+        echo "${MYSQLINFO}Buffer(s) Pool:${RESET} $MYSQLINNODB"
+
+fi
 
 echo
 
 echo "${MYSQLINFO}${UNDERLINE}MyISAM Elements${RESET}"
-echo "${MYSQLINFO}Overall Size #: ${RESET}" $MYISAMSIZE
-echo "${MYSQLINFO}Total Table(s): ${RESET}" $TOTALMYISAM
-echo "${MYSQLINFO}Entire Cache #: ${RESET}" $MYISAMCACHE M
-echo "${MYSQLINFO}Buffer(s) Pool: ${RESET}" $MYSQLMYISAM
+echo "${MYSQLINFO}Overall Size #:${RESET}" $MYISAMSIZE
+echo "${MYSQLINFO}Total Table(s):${RESET}" $TOTALMYISAM
+echo "${MYSQLINFO}Entire Cache #:${RESET}" $MYISAMCACHE M
+#echo "${MYSQLINFO}Buffer(s) Pool: ${RESET}" $MYSQLMYISAM
+if [[ "$MYISAMPRESENT" == "" ]];then
+
+        echo "${MYSQLINFO}Buffer(s) Pool:${RESET} 8 M (default)"
+
+elif [[ $MYISAMVALUE == *M ]] || [[ $MYISAMVALUE == *G ]];then
+
+        echo "${MYSQLINFO}Buffer(s) Pool:${RESET} $MYISAMNUMVALUE $MYISAMDENOM"
+
+else
+
+        echo "${MYSQLINFO}Buffer(s) Pool:${RESET} $MYSQLMYISAM"
+
+fi
 
 echo
 
